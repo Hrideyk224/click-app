@@ -3,6 +3,11 @@ import mediapipe as mp
 import pyautogui
 import time
 import streamlit as st
+import os
+
+# Check if running locally
+def is_running_locally():
+    return not os.environ.get("IS_CLOUD")
 
 # Helper functions
 def is_thumb_index_finger_touching(landmarks):
@@ -75,9 +80,12 @@ if start_camera:
                 
                 # Check thumb-index touch to trigger spacebar
                 if thumb_index_active and is_thumb_index_finger_touching(hand_landmarks.landmark):
-                    pyautogui.press('space')  # Send spacebar key
-                    time.sleep(0.25)
-        
+                    if is_running_locally():
+                        pyautogui.press('space')  # Send spacebar key
+                        time.sleep(0.25)
+                    else:
+                        st.write("pyautogui is disabled in cloud environments.")
+
         # Display the frame in the Streamlit app
         FRAME_WINDOW.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
