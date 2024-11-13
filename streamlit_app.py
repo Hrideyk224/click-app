@@ -1,13 +1,7 @@
 import cv2
 import mediapipe as mp
-import pyautogui
 import time
 import streamlit as st
-import os
-
-# Check if running locally
-def is_running_locally():
-    return not os.environ.get("IS_CLOUD")
 
 # Helper functions
 def is_thumb_index_finger_touching(landmarks):
@@ -27,7 +21,7 @@ def is_thumb_pinky_finger_touching(landmarks):
 # Streamlit app title
 st.title("Hand Gesture Control App")
 
-# Initialize Mediapipe Hands and PyAutoGUI
+# Initialize Mediapipe Hands
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7)
 mp_drawing = mp.solutions.drawing_utils
@@ -41,58 +35,37 @@ thumb_index_active = True
 toggle_delay = 0.5  # Delay to avoid repeated toggling
 last_toggle_time = time.time()
 
-# Start/Stop button for the webcam
-start_camera = st.button("Start/Stop Camera")
+# Note to cloud users
+st.info("This app is optimized for local environments. In a cloud environment, live video feed and certain actions may be restricted.")
 
-# Webcam feed display in Streamlit
-FRAME_WINDOW = st.image([])
+# Webcam functionality replacement
+uploaded_file = st.file_uploader("Upload an image of your hand", type=["jpg", "jpeg", "png"])
 
-# Initialize camera only if button is pressed
-if start_camera:
-    # Initialize webcam
-    cap = cv2.VideoCapture(0)
-
-    # Stream video frames to Streamlit
-    while True:
-        start_time = time.time()
-        
-        ret, frame = cap.read()
-        if not ret:
-            st.write("Error: Could not read from camera.")
-            break
-        
-        # Flip and process the frame
-        frame = cv2.flip(frame, 1)
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        result = hands.process(rgb_frame)
-
-        if result.multi_hand_landmarks:
-            for hand_landmarks in result.multi_hand_landmarks:
-                # Draw the hand landmarks
-                mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-                
-                # Check thumb-pinky touch for toggling
-                if time.time() - last_toggle_time > toggle_delay:
-                    if is_thumb_pinky_finger_touching(hand_landmarks.landmark):
-                        thumb_index_active = not thumb_index_active
-                        st.write(f"Thumb-index detection {'activated' if thumb_index_active else 'deactivated'}")
-                        last_toggle_time = time.time()
-                
-                # Check thumb-index touch to trigger spacebar
-                if thumb_index_active and is_thumb_index_finger_touching(hand_landmarks.landmark):
-                    if is_running_locally():
-                        pyautogui.press('space')  # Send spacebar key
-                        time.sleep(0.25)
-                    else:
-                        st.write("pyautogui is disabled in cloud environments.")
-
-        # Display the frame in the Streamlit app
-        FRAME_WINDOW.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-
-        # Limit frame rate
-        elapsed_time = time.time() - start_time
-        if elapsed_time < frame_duration:
-            time.sleep(frame_duration - elapsed_time)
+if uploaded_file:
+    # Load and process the uploaded image
+    file_bytes = uploaded_file.read()
+    frame = cv2.imdecode(np.frombuffer(file_bytes, np.uint8), cv2.IMREAD_COLOR)
     
-    # Release the camera once stopped
-    cap.release()
+    # Flip and process the frame
+    frame = cv2.flip(frame, 1)
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    result = hands.process(rgb_frame)
+
+    if result.multi_hand_landmarks:
+        for hand_landmarks in result.multi_hand_landmarks:
+            # Draw the hand landmarks
+            mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+            
+            # Check thumb-pinky touch for toggling
+            if time.time() - last_toggle_time > toggle_delay:
+                if is_thumb_pinky_finger_touching(hand_landmarks.landmark):
+                    thumb_index_active = not thumb_index_active
+                    st.write(f"Thumb-index detection {'activated' if thumb_index_active else 'deactivated'}")
+                    last_toggle_time = time.time()
+            
+            # Simulate spacebar action as a log message
+            if thumb_index_active and is_thumb_index_finger_touching(hand_landmarks.landmark):
+                st.write("Simulated spacebar press!")  # Logs instead of using `pyautogui`
+
+    # Display the processed image with landmarks
+    st.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), caption="Processed Image with Hand Landmarks")
